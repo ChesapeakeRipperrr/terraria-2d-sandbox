@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terraria-like 2D Sandbox Survival</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Segoe UI',sans-serif;user-select:none}
+#game{display:block;cursor:crosshair}
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#hp{position:absolute;top:12px;left:12px;display:flex;gap:2px}
+.h{width:22px;height:22px}
+#hotbar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:3px;pointer-events:auto}
+.sl{width:46px;height:46px;background:rgba(40,40,55,.85);border:2px solid rgba(80,80,100,.5);border-radius:4px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.sl:hover{border-color:rgba(150,150,180,.8)}
+.sl.sel{border-color:#fff;box-shadow:0 0 6px rgba(255,255,255,.5)}
+.sl .ic{font-size:22px;line-height:1}
+.sl .ct{position:absolute;bottom:1px;right:3px;font-size:11px;color:#fff;font-weight:bold;text-shadow:1px 1px 2px #000}
+.sl .ky{position:absolute;top:0;left:2px;font-size:9px;color:rgba(180,180,200,.5)}
+#inv{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(30,30,42,.95);border:2px solid rgba(100,100,130,.5);border-radius:8px;padding:14px;display:none;pointer-events:auto}
+#inv h3{color:#ddd;margin-bottom:8px;font-size:15px;text-align:center}
+#invGrid{display:grid;grid-template-columns:repeat(5,46px);gap:3px}
+.is{width:46px;height:46px;background:rgba(50,50,65,.8);border:1px solid rgba(80,80,100,.4);border-radius:4px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.is:hover{border-color:rgba(150,150,180,.8)}
+.is .ic{font-size:22px}
+.is .ct{position:absolute;bottom:1px;right:3px;font-size:11px;color:#fff;font-weight:bold;text-shadow:1px 1px 2px #000}
+#craft{position:absolute;top:50%;right:15px;transform:translateY(-50%);background:rgba(30,30,42,.95);border:2px solid rgba(100,100,130,.5);border-radius:8px;padding:14px;display:none;pointer-events:auto;min-width:240px;max-height:80vh;overflow-y:auto}
+#craft h3{color:#ddd;margin-bottom:8px;font-size:15px;text-align:center}
+.rc{display:flex;align-items:center;gap:6px;padding:5px 7px;margin:2px 0;background:rgba(50,50,65,.6);border-radius:4px;cursor:pointer}
+.rc:hover{background:rgba(70,70,90,.8)}
+.rc.dis{opacity:.4;cursor:not-allowed}
+.rc .ic{font-size:20px;width:26px;text-align:center}
+.rc .nm{color:#ccc;font-size:12px;flex:1}
+.rc .cs{color:#999;font-size:10px}
+#info{position:absolute;top:12px;right:12px;color:#ddd;font-size:13px;text-align:right;text-shadow:1px 1px 2px #000}
+#msg{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#ffcc66;font-size:16px;text-shadow:2px 2px 4px #000;opacity:0;transition:opacity .3s}
+#death{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(80,0,0,.6);display:none;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;z-index:20}
+#death h1{color:#ff4444;font-size:44px;margin-bottom:16px;text-shadow:2px 2px 8px #000}
+#death button{padding:10px 32px;font-size:16px;background:rgba(60,60,80,.9);color:#fff;border:2px solid #888;border-radius:6px;cursor:pointer}
+#start{position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,#1a1a2e,#16213e 50%,#0f3460);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30}
+#start h1{color:#e8c170;font-size:48px;margin-bottom:6px;text-shadow:3px 3px 6px #000}
+#start p{color:#888;font-size:15px;margin-bottom:24px}
+#start button{padding:12px 44px;font-size:20px;background:linear-gradient(180deg,#3a6e3a,#2a5e2a);color:#fff;border:2px solid #4a8e4a;border-radius:8px;cursor:pointer}
+#start button:hover{background:linear-gradient(180deg,#4a8e4a,#3a7e3a)}
+#hint{color:#666;font-size:12px;margin-top:24px;line-height:1.8;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+<div id="hp"></div>
+<div id="info"><div id="ti">☀️</div><div id="fps"></div></div>
+<div id="msg"></div>
+<div id="hotbar"></div>
+<div id="inv"><h3>🎒 背包</h3><div id="invGrid"></div></div>
+<div id="craft"><h3>🔨 制作台</h3><div id="rcList"></div></div>
+<div id="death"><h1>你死了</h1><button onclick="G.respawn()">重生</button></div>
+</div>
+<div id="start">
+<h1>⛏ TERRARIA-LIKE ⚔</h1><p>2D 沙盒生存游戏</p>
+<button onclick="G.start()">开始游戏</button>
+<div id="hint">WASD/方向键 移动 | 空格 跳跃 | 左键 挖掘/攻击 | 右键 放置<br>E 背包 | C 制作 | 1-0 选栏 | 滚轮切换 | F 火把 | Q 丢弃</div>
+</div>
+<script>
+'use strict';
+// ===== CONSTANTS =====
+const TILE=24,WORLD_W=400,WORLD_H=180,SURFACE_Y=80;
+const GRAVITY=0.45,MAX_FALL=14,DAY_LENGTH=120,REACH=5;
+const T={AIR:0,GRASS:1,DIRT:2,STONE:3,WOOD:4,LEAF:5,COPPER:6,IRON:7,GOLD:8,SAND:9,PLANK:10,TORCH:11,COAL:12,DIAMOND:13,BRICK:14,GLASS:15};
+const TD={
+0:{n:'空气',c:null,h:0,mt:0,d:null,s:false,i:''},
+1:{n:'草地',c:'#4a8f3a',h:1,mt:0,d:2,s:true,i:'🟩'},
+2:{n:'泥土',c:'#8B5A2B',h:1,mt:0,d:2,s:true,i:'🟫'},
+3:{n:'石头',c:'#7a7a7a',h:3,mt:0,d:3,s:true,i:'🪨'},
+4:{n:'木材',c:'#6B4226',h:2,mt:0,d:4,s:true,i:'🪵'},
+5:{n:'树叶',c:'#3a7f2a',h:0.5,mt:0,d:null,s:false,i:'🌿'},
+6:{n:'铜矿',c:'#b87333',h:4,mt:1,d:6,s:true,i:'🟧'},
+7:{n:'铁矿',c:'#c4c4c4',h:5,mt:1,d:7,s:true,i:'⚙️'},
+8:{n:'金矿',c:'#FFD700',h:6,mt:2,d:8,s:true,i:'🟨'},
+9:{n:'沙子',c:'#e8d170',h:0.8,mt:0,d:9,s:true,i:'🟨'},
+10:{n:'木板',c:'#C19A6B',h:2,mt:0,d:10,s:true,i:'🟧'},
+11:{n:'火把',c:'#FF8C00',h:0.1,mt:0,d:11,s:false,i:'🔥'},
+12:{n:'煤矿',c:'#2a2a2a',h:4,mt:0,d:12,s:true,i:'⬛'},
+13:{n:'钻石矿',c:'#42E6FF',h:7,mt:2,d:13,s:true,i:'💎'},
+14:{n:'砖块',c:'#a04040',h:5,mt:1,d:14,s:true,i:'🧱'},
+15:{n:'玻璃',c:'#a0d8e8',h:1,mt:0,d:15,s:true,i:'🔷'}
+};
+const I={WSWORD:100,WPICK:101,SSWORD:102,SPICK:103,ISWORD:104,IPICK:105,GSWORD:106,DSWORD:107,CSWORD:108,STICK:109,APPLE:110};
+const ID={
+2:{n:'泥土',i:'🟫',t:'b',p:2},3:{n:'石头',i:'🪨',t:'b',p:3},4:{n:'木材',i:'🪵',t:'b',p:4},
+9:{n:'沙子',i:'🟨',t:'b',p:9},10:{n:'木板',i:'🟧',t:'b',p:10},11:{n:'火把',i:'🔥',t:'b',p:11},
+14:{n:'砖块',i:'🧱',t:'b',p:14},15:{n:'玻璃',i:'🔷',t:'b',p:15},
+6:{n:'铜矿',i:'🟧',t:'b',p:6},7:{n:'铁矿',i:'⚙️',t:'b',p:7},8:{n:'金矿',i:'🟨',t:'b',p:8},
+12:{n:'煤矿',i:'⬛',t:'b',p:12},13:{n:'钻石',i:'💎',t:'b',p:13},
+100:{n:'木剑',i:'🗡️',t:'sw',dmg:12,rng:60},101:{n:'木镐',i:'⛏️',t:'pk',pow:2},
+102:{n:'石剑',i:'⚔️',t:'sw',dmg:20,rng:65},103:{n:'石镐',i:'⛏️',t:'pk',pow:4},
+104:{n:'铁剑',i:'⚔️',t:'sw',dmg:34,rng:70},105:{n:'铁镐',i:'⛏️',t:'pk',pow:6},
+106:{n:'金剑',i:'⚔️',t:'sw',dmg:45,rng:75},107:{n:'钻石剑',i:'⚔️',t:'sw',dmg:65,rng:80},
+108:{n:'铜剑',i:'🗡️',t:'sw',dmg:16,rng:62},109:{n:'木棍',i:'🥢',t:'it'},
+110:{n:'苹果',i:'🍎',t:'food',heal:25}
+};
+// Crafting recipes: {out:{item,count}, in:[{item,count}...]}
+const RECIPES=[
+{out:{i:10,c:4},in:[{i:4,c:1}],name:'木板 x4'},
+{out:{i:109,c:2},in:[{i:4,c:1}],name:'木棍 x2'},
+{out:{i:100,c:1},in:[{i:10,c:6}],name:'木剑'},
+{out:{i:101,c:1},in:[{i:10,c:5},{i:109,c:2}],name:'木镐'},
+{out:{i:102,c:1},in:[{i:10,c:6},{i:3,c:4}],name:'石剑'},
+{out:{i:103,c:1},in:[{i:10,c:5},{i:3,c:4},{i:109,c:2}],name:'石镐'},
+{out:{i:108,c:1},in:[{i:10,c:6},{i:6,c:8}],name:'铜剑'},
+{out:{i:104,c:1},in:[{i:10,c:6},{i:7,c:8}],name:'铁剑'},
+{out:{i:105,c:1},in:[{i:10,c:5},{i:7,c:8},{i:109,c:2}],name:'铁镐'},
+{out:{i:106,c:1},in:[{i:10,c:6},{i:8,c:8}],name:'金剑'},
+{out:{i:107,c:1},in:[{i:10,c:6},{i:13,c:6}],name:'钻石剑'},
+{out:{i:11,c:4},in:[{i:4,c:1},{i:12,c:1}],name:'火把 x4'},
+{out:{i:14,c:1},in:[{i:3,c:2}],name:'砖块'},
+{out:{i:15,c:1},in:[{i:9,c:2}],name:'玻璃'}
+];
+// ===== NOISE =====
+function makeNoise(seed){var p=[];for(var i=0;i<256;i++)p[i]=i;var s=seed;for(var i=255;i>0;i--){s=(s*16807)%2147483647;var j=s%(i+1);var t=p[i];p[i]=p[j];p[j]=t;}var perm=[];for(var i=0;i<512;i++)perm[i]=p[i&255];function fade(t){return t*t*t*(t*(t*6-15)+10);}function lerp(a,b,t){return a+t*(b-a);}function grad(h,x,y){var u=h<1||h===4?x:y;var v=h<1||h===4?y:x;return((h&1)===0?u:-u)+((h&2)===0?v:-v);}return function(x,y){var X=Math.floor(x)&255,Y=Math.floor(y)&255;x-=Math.floor(x);y-=Math.floor(y);var u=fade(x),v=fade(y);var A=perm[X]+Y,B=perm[X+1]+Y;return lerp(lerp(grad(perm[A],x,y),grad(perm[B],x-1,y),u),lerp(grad(perm[A+1],x,y-1),grad(perm[B+1],x-1,y-1),u),v);};}
+function fbm(noise,x,y,oct,freq,amp){var v=0,a=amp,f=freq;for(var i=0;i<oct;i++){v+=a*noise(x*f,y*f);f*=2;a*=0.5;}return v;}
+
+// ===== WORLD =====
+var world=[], lightMap=[];
+var noise1=makeNoise(42),noise2=makeNoise(137),noise3=makeNoise(256);
+
+function genWorld(){
+  world=new Array(WORLD_W*WORLD_H);
+  for(var x=0;x<WORLD_W;x++){
+    var h=SURFACE_Y+Math.floor(fbm(noise1,x*0.05,0,4,1,12));
+    var biome=fbm(noise2,x*0.02,0,2,1,1);
+    for(var y=0;y<WORLD_H;y++){
+      var idx=y*WORLD_W+x;
+      if(y<h) world[idx]=T.AIR;
+      else if(y===h) world[idx]=biome>0.3?T.SAND:T.GRASS;
+      else if(y<h+4) world[idx]=biome>0.3?T.SAND:T.DIRT;
+      else world[idx]=T.STONE;
+      // Caves
+      if(y>h+6 && y<WORLD_H-5){
+        var cv=fbm(noise3,x*0.06,y*0.06,3,1,1);
+        var cv2=fbm(noise1,x*0.03,y*0.03,2,1,1);
+        if(cv>0.45 || (cv2>0.55 && y>h+20)) world[idx]=T.AIR;
+      }
+      // Ores
+      if(world[idx]===T.STONE){
+        var depth=y-h;
+        var r=Math.random();
+        if(depth>3 && r<0.015) world[idx]=T.COPPER;
+        else if(depth>15 && r<0.012) world[idx]=T.IRON;
+        else if(depth>10 && r<0.02) world[idx]=T.COAL;
+        else if(depth>40 && r<0.005) world[idx]=T.GOLD;
+        else if(depth>60 && r<0.002) world[idx]=T.DIAMOND;
+      }
+    }
+  }
+  // Trees
+  for(var x=5;x<WORLD_W-5;x++){
+    if(Math.random()<0.08){
+      var sy=getSurface(x);
+      if(sy>0 && world[sy*WORLD_W+x]===T.GRASS){
+        var th=4+Math.floor(Math.random()*4);
+        for(var ty=sy-1;ty>sy-th-1;ty--) if(ty>=0) world[ty*WORLD_W+x]=T.WOOD;
+        var cy=sy-th-1;
+        for(var dx=-2;dx<=2;dx++) for(var dy=-2;dy<=1;dy++){
+          var lx=x+dx,ly=cy+dy;
+          if(lx>=0&&lx<WORLD_W&&ly>=0&&ly<WORLD_H && world[ly*WORLD_W+lx]===T.AIR)
+            if(Math.abs(dx)+Math.abs(dy)<4) world[ly*WORLD_W+lx]=T.LEAF;
+        }
+      }
+    }
+  }
+  // Light map
+  lightMap=new Array(WORLD_W*WORLD_H);
+  computeLight();
+}
+
+function getSurface(x){
+  for(var y=0;y<WORLD_H;y++) if(TD[world[y*WORLD_W+x]].s) return y-1;
+  return SURFACE_Y;
+}
+function getTile(x,y){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H)return T.STONE;return world[y*WORLD_W+x];}
+function setTile(x,y,v){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H)return;world[y*WORLD_W+x]=v;}
+function isSolid(x,y){return TD[getTile(x,y)].s;}
+
+// ===== LIGHTING =====
+function computeLight(){
+  var time=G.time;
+  var dayLight=0;
+  var t=(time%DAY_LENGTH)/DAY_LENGTH;
+  if(t<0.25) dayLight=0.15+t*3.4;
+  else if(t<0.5) dayLight=1.0;
+  else if(t<0.75) dayLight=1.0-(t-0.5)*3.4;
+  else dayLight=0.15;
+  dayLight=Math.max(0.08,Math.min(1.0,dayLight));
+  for(var x=0;x<WORLD_W;x++){
+    var light=dayLight;
+    for(var y=0;y<WORLD_H;y++){
+      var idx=y*WORLD_W+x;
+      var tile=world[idx];
+      if(tile===T.TORCH) light=Math.max(light,1.0);
+      else if(TD[tile].s && tile!==T.GLASS) light=Math.max(light*0.82,0.02);
+      else if(tile===T.LEAF) light=Math.max(light*0.92,dayLight*0.3);
+      lightMap[idx]=light;
+    }
+  }
+  // Horizontal spread
+  for(var pass=0;pass<2;pass++){
+    for(var y=0;y<WORLD_H;y++) for(var x=1;x<WORLD_W;x++){
+      var idx=y*WORLD_W+x;
+      lightMap[idx]=Math.max(lightMap[idx],lightMap[idx-1]*0.9);
+    }
+    for(var y=0;y<WORLD_H;y++) for(var x=WORLD_W-2;x>=0;x--){
+      var idx=y*WORLD_W+x;
+      lightMap[idx]=Math.max(lightMap[idx],lightMap[idx+1]*0.9);
+    }
+  }
+}
+function getLight(x,y){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H)return 0.1;return lightMap[y*WORLD_W+x];}
+// ===== PLAYER =====
+var player={
+  x:0,y:0,vx:0,vy:0,w:18,h:38,
+  hp:100,maxHp:100,
+  inv:[],hotbarSel:0,
+  onGround:false,
+  facing:1,
+  mining:null, // {tx,ty,progress}
+  attackCD:0,
+  invuln:0,
+  alive:true
+};
+
+function initPlayer(){
+  var sx=Math.floor(WORLD_W/2);
+  var sy=getSurface(sx);
+  player.x=sx*TILE+TILE/2;
+  player.y=(sy-2)*TILE;
+  player.vx=0;player.vy=0;player.hp=100;player.alive=true;
+  player.inv=[];
+  for(var i=0;i<30;i++) player.inv.push(null);
+  // Starting items
+  addItem(101,1); // wooden pickaxe
+  addItem(100,1); // wooden sword
+  addItem(11,10); // torches
+  addItem(110,3); // apples
+}
+
+function addItem(item,count){
+  count=count||1;
+  // Stack
+  for(var i=0;i<30;i++){
+    if(player.inv[i]&&player.inv[i].i===item&&player.inv[i].c<99){
+      var add=Math.min(count,99-player.inv[i].c);
+      player.inv[i].c+=add; count-=add;
+      if(count<=0) return true;
+    }
+  }
+  // New slot
+  for(var i=0;i<30;i++){
+    if(!player.inv[i]){
+      player.inv[i]={i:item,c:Math.min(count,99)};
+      return true;
+    }
+  }
+  return false;
+}
+function removeItem(item,count){
+  count=count||1;
+  for(var i=0;i<30;i++){
+    if(player.inv[i]&&player.inv[i].i===item){
+      var rm=Math.min(count,player.inv[i].c);
+      player.inv[i].c-=rm; count-=rm;
+      if(player.inv[i].c<=0) player.inv[i]=null;
+      if(count<=0) return true;
+    }
+  }
+  return count<=0;
+}
+function countItem(item){
+  var c=0;
+  for(var i=0;i<30;i++) if(player.inv[i]&&player.inv[i].i===item) c+=player.inv[i].c;
+  return c;
+}
+function getSelected(){return player.inv[player.hotbarSel];}
+
+function getPickPower(){
+  var s=getSelected();
+  if(!s) return 1;
+  var d=ID[s.i];
+  if(d&&d.t==='pk') return d.pow;
+  return 1;
+}
+function getWeapon(){
+  var s=getSelected();
+  if(!s) return null;
+  var d=ID[s.i];
+  if(d&&d.t==='sw') return d;
+  return null;
+}
+
+function updatePlayer(dt){
+  if(!player.alive) return;
+  // Input
+  var ax=0;
+  if(G.keys['a']||G.keys['arrowleft']) ax=-1;
+  if(G.keys['d']||G.keys['arrowright']) ax=1;
+  player.vx=ax*3.5;
+  if(ax!==0) player.facing=ax;
+  // Jump
+  if((G.keys[' ']||G.keys['w']||G.keys['arrowup'])&&player.onGround){
+    player.vy=-8.5; player.onGround=false;
+  }
+  // Gravity
+  player.vy+=GRAVITY;
+  if(player.vy>MAX_FALL) player.vy=MAX_FALL;
+  // Move X
+  var nx=player.x+player.vx;
+  if(!checkCollide(nx,player.y)) player.x=nx;
+  else player.vx=0;
+  // Move Y
+  var ny=player.y+player.vy;
+  if(!checkCollide(player.x,ny)){player.y=ny;player.onGround=false;}
+  else{
+    if(player.vy>0) player.onGround=true;
+    player.vy=0;
+  }
+  // Clamp
+  if(player.y>WORLD_H*TILE){player.hp=0;checkDeath();}
+  // Cooldowns
+  if(player.attackCD>0) player.attackCD-=dt;
+  if(player.invuln>0) player.invuln-=dt;
+  // Fall damage
+  if(player.onGround && player.vy===0 && player._fallVy>10){
+    var dmg=Math.floor((player._fallVy-10)*2);
+    if(dmg>0) damagePlayer(dmg);
+  }
+  player._fallVy=player.vy;
+}
+
+function checkCollide(x,y){
+  var l=Math.floor((x-player.w/2)/TILE),r=Math.floor((x+player.w/2-1)/TILE);
+  var t=Math.floor(y/TILE),b=Math.floor((y+player.h-1)/TILE);
+  for(var ty=t;ty<=b;ty++) for(var tx=l;tx<=r;tx++) if(isSolid(tx,ty)) return true;
+  return false;
+}
+
+function damagePlayer(dmg){
+  if(player.invuln>0||!player.alive) return;
+  player.hp-=dmg; player.invuln=0.5;
+  G.shake=Math.min(10,dmg);
+  checkDeath();
+}
+function checkDeath(){
+  if(player.hp<=0&&player.alive){
+    player.alive=false;
+    document.getElementById('death').style.display='flex';
+  }
+}
+// ===== ENEMIES =====
+var enemies=[];
+function spawnEnemy(x,y){
+  enemies.push({x:x,y:y,vx:0,vy:0,w:18,h:34,hp:50,maxHp:50,dmg:12,cd:0,onG:false,facing:1,hitFlash:0});
+}
+function updateEnemies(dt){
+  var isNight=G.isNight;
+  for(var i=enemies.length-1;i>=0;i--){
+    var e=enemies[i];
+    // AI: move toward player
+    var dx=player.x-e.x;
+    var dist=Math.abs(dx);
+    e.facing=dx>0?1:-1;
+    if(dist>20 && dist<400){
+      e.vx=e.facing*1.8;
+    } else e.vx=0;
+    // Jump if blocked
+    if(e.onG){
+      var ahead=Math.floor((e.x+e.facing*15)/TILE);
+      var footY=Math.floor((e.y+e.h+2)/TILE);
+      if(isSolid(ahead,footY-1)&&!isSolid(ahead,footY-2)) e.vy=-7;
+    }
+    // Gravity
+    e.vy+=GRAVITY; if(e.vy>MAX_FALL)e.vy=MAX_FALL;
+    // Move
+    var nx=e.x+e.vx;
+    if(!eCollide(nx,e.y,e.w,e.h)) e.x=nx; else e.vx=0;
+    var ny=e.y+e.vy;
+    if(!eCollide(e.x,ny,e.w,e.h)){e.y=ny;e.onG=false;} else {if(e.vy>0)e.onG=true;e.vy=0;}
+    // Attack player
+    if(e.cd>0) e.cd-=dt;
+    if(e.hitFlash>0) e.hitFlash-=dt;
+    var pdx=Math.abs(player.x-e.x),pdy=Math.abs(player.y-e.y);
+    if(pdx<24 && pdy<40 && e.cd<=0 && player.alive){
+      damagePlayer(e.dmg); e.cd=1.0;
+    }
+    // Despawn if too far or daytime
+    if(dist>800 || (isNight===false && e.y<SURFACE_Y*TILE)){
+      // Zombies burn in daylight
+      if(G.isNight===false){
+        e.hp-=30*dt;
+        e.hitFlash=0.1;
+      }
+    }
+    if(e.hp<=0){
+      enemies.splice(i,1);
+      // Drop chance
+      if(Math.random()<0.3) addItem(110,1); // apple
+    }
+  }
+  // Spawn at night
+  if(G.isNight && enemies.length<12 && Math.random()<0.02){
+    var px=Math.floor(player.x/TILE);
+    var sx=px+(Math.random()<0.5?-1:1)*(15+Math.random()*15);
+    sx=Math.max(5,Math.min(WORLD_W-5,Math.floor(sx)));
+    var sy=getSurface(sx);
+    if(sy>0) spawnEnemy(sx*TILE+TILE/2,sy*TILE-35);
+  }
+}
+function eCollide(x,y,w,h){
+  var l=Math.floor((x-w/2)/TILE),r=Math.floor((x+w/2-1)/TILE);
+  var t=Math.floor(y/TILE),b=Math.floor((y+h-1)/TILE);
+  for(var ty=t;ty<=b;ty++) for(var tx=l;tx<=r;tx++) if(isSolid(tx,ty)) return true;
+  return false;
+}
+
+// ===== PARTICLES =====
+var particles=[];
+function addParticle(x,y,vx,vy,color,life,size){
+  particles.push({x:x,y:y,vx:vx,vy:vy,c:color,l:life,ml:life,s:size||3});
+}
+function updateParticles(dt){
+  for(var i=particles.length-1;i>=0;i--){
+    var p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.2; p.l-=dt;
+    if(p.l<=0) particles.splice(i,1);
+  }
+}
+
+// ===== MINING & BUILDING =====
+function updateMining(dt){
+  if(!player.alive || !G.mouseDown || attackInterval) { player.mining=null; return; }
+  var mx=G.mouseWorld.x,my=G.mouseWorld.y;
+  var tx=Math.floor(mx/TILE),ty=Math.floor(my/TILE);
+  var px=Math.floor(player.x/TILE),py=Math.floor(player.y/TILE);
+  var dist=Math.sqrt((tx-px)*(tx-px)+(ty-py)*(ty-py));
+  if(dist>REACH){player.mining=null;return;}
+  var tile=getTile(tx,ty);
+  if(tile===T.AIR||tile===T.LEAF){player.mining=null;return;}
+  // Check tool requirement
+  var td=TD[tile];
+  var pp=getPickPower();
+  if(td.mt>pp){showMsg('需要更好的镐子!');player.mining=null;return;}
+  if(!player.mining||player.mining.tx!==tx||player.mining.ty!==ty){
+    player.mining={tx:tx,ty:ty,prog:0};
+  }
+  var speed=pp/td.h*3;
+  player.mining.prog+=speed*dt;
+  // Particles
+  if(Math.random()<0.3){
+    addParticle(tx*TILE+Math.random()*TILE,ty*TILE+Math.random()*TILE,
+      (Math.random()-0.5)*2,-Math.random()*2,td.c,0.5,2);
+  }
+  if(player.mining.prog>=1){
+    // Break tile
+    var drop=td.d;
+    setTile(tx,ty,T.AIR);
+    if(drop!==null) addItem(drop,1);
+    // Extra drops
+    if(tile===T.GRASS && Math.random()<0.2) addItem(110,1); // apple from grass
+    player.mining=null;
+    computeLight();
+  }
+}
+
+function placeBlock(tx,ty){
+  var px=Math.floor(player.x/TILE),py=Math.floor(player.y/TILE);
+  var dist=Math.sqrt((tx-px)*(tx-px)+(ty-py)*(ty-py));
+  if(dist>REACH) return;
+  if(tx<0||tx>=WORLD_W||ty<0||ty>=WORLD_H) return;
+  if(getTile(tx,ty)!==T.AIR) return;
+  // Don't place inside player
+  var pl=Math.floor((player.x-player.w/2)/TILE),pr=Math.floor((player.x+player.w/2-1)/TILE);
+  var pt=Math.floor(player.y/TILE),pb=Math.floor((player.y+player.h-1)/TILE);
+  if(tx>=pl&&tx<=pr&&ty>=pt&&ty<=pb) return;
+  var s=getSelected();
+  if(!s) return;
+  var d=ID[s.i];
+  if(!d||d.t!=='b') return;
+  setTile(tx,ty,d.p);
+  s.c--; if(s.c<=0) player.inv[player.hotbarSel]=null;
+  computeLight();
+}
+
+function attack(){
+  if(player.attackCD>0||!player.alive) return;
+  var w=getWeapon();
+  if(!w){
+    // Punch
+    w={dmg:5,rng:40};
+  }
+  player.attackCD=0.35;
+  var ax=player.x+player.facing*w.rng;
+  var ay=player.y+player.h/2;
+  // Hit enemies
+  for(var i=0;i<enemies.length;i++){
+    var e=enemies[i];
+    var dx=Math.abs(e.x-ax),dy=Math.abs(e.y+e.h/2-ay);
+    if(dx<w.rng+10 && dy<35){
+      e.hp-=w.dmg; e.hitFlash=0.15;
+      e.vx+=player.facing*4; e.vy=-3;
+      addParticle(e.x,e.y+e.h/2,(Math.random()-0.5)*4,-Math.random()*3,'#ff0000',0.4,3);
+    }
+  }
+  // Attack particles
+  for(var i=0;i<5;i++)
+    addParticle(ax,ay+(Math.random()-0.5)*20,player.facing*2,0,'#fff',0.2,2);
+}
+// ===== CAMERA & RENDER =====
+var cam={x:0,y:0};
+function updateCamera(){
+  cam.x=player.x-G.cw/2;
+  cam.y=player.y-G.ch/2;
+  if(G.shake>0){
+    cam.x+=(Math.random()-0.5)*G.shake;
+    cam.y+=(Math.random()-0.5)*G.shake;
+    G.shake*=0.85;
+    if(G.shake<0.1)G.shake=0;
+  }
+  // Clamp
+  cam.x=Math.max(0,Math.min(WORLD_W*TILE-G.cw,cam.x));
+  cam.y=Math.max(0,Math.min(WORLD_H*TILE-G.ch,cam.y));
+}
+
+function getSkyColor(){
+  var t=(G.time%DAY_LENGTH)/DAY_LENGTH;
+  // t: 0=dawn, 0.25=noon, 0.5=dusk, 0.75=midnight
+  var r,g,b;
+  if(t<0.25){
+    var k=t/0.25;
+    r=lerpC(135,100,k);g=lerpC(206,180,k);b=lerpC(235,255,k);
+  } else if(t<0.5){
+    var k=(t-0.25)/0.25;
+    r=lerpC(100,255,k);g=lerpC(180,140,k);b=lerpC(255,80,k);
+  } else if(t<0.75){
+    var k=(t-0.5)/0.25;
+    r=lerpC(255,15,k);g=lerpC(140,15,k);b=lerpC(80,40,k);
+  } else {
+    var k=(t-0.75)/0.25;
+    r=lerpC(15,135,k);g=lerpC(15,206,k);b=lerpC(40,235,k);
+  }
+  return 'rgb('+Math.round(r)+','+Math.round(g)+','+Math.round(b)+')';
+}
+function lerpC(a,b,t){return a+(b-a)*t;}
+
+function render(){
+  var ctx=G.ctx;
+  // Sky
+  ctx.fillStyle=getSkyColor();
+  ctx.fillRect(0,0,G.cw,G.ch);
+  // Stars at night
+  var t=(G.time%DAY_LENGTH)/DAY_LENGTH;
+  if(t>0.5 && t<0.95){
+    var alpha=Math.sin((t-0.5)/0.45*Math.PI)*0.6;
+    ctx.fillStyle='rgba(255,255,255,'+alpha+')';
+    for(var i=0;i<60;i++){
+      var sx=(i*137.5)%G.cw, sy=(i*73.3)%(G.ch*0.6);
+      ctx.fillRect(sx,sy,2,2);
+    }
+  }
+  // Sun/Moon
+  var sunAngle=t*Math.PI*2-Math.PI/2;
+  var sunX=G.cw/2+Math.cos(sunAngle)*G.cw*0.4;
+  var sunY=G.ch*0.3+Math.sin(sunAngle)*G.ch*0.4;
+  if(t<0.5){
+    ctx.fillStyle='#FFD700'; ctx.beginPath(); ctx.arc(sunX,sunY,20,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,215,0,0.3)'; ctx.beginPath(); ctx.arc(sunX,sunY,30,0,Math.PI*2); ctx.fill();
+  } else {
+    ctx.fillStyle='#e0e0e0'; ctx.beginPath(); ctx.arc(sunX,sunY,16,0,Math.PI*2); ctx.fill();
+  }
+  // Distant hills (parallax)
+  ctx.fillStyle='rgba(40,60,50,0.4)';
+  ctx.beginPath(); ctx.moveTo(0,G.ch);
+  for(var x=0;x<=G.cw;x+=20){
+    var hy=G.ch*0.55+Math.sin((x+cam.x*0.3)*0.005)*40+Math.sin((x+cam.x*0.3)*0.012)*20;
+    ctx.lineTo(x,hy);
+  }
+  ctx.lineTo(G.cw,G.ch); ctx.fill();
+  // Tiles
+  var sx0=Math.floor(cam.x/TILE)-1,sx1=Math.ceil((cam.x+G.cw)/TILE)+1;
+  var sy0=Math.floor(cam.y/TILE)-1,sy1=Math.ceil((cam.y+G.ch)/TILE)+1;
+  for(var ty=sy0;ty<sy1;ty++){
+    for(var tx=sx0;tx<sx1;tx++){
+      var tile=getTile(tx,ty);
+      if(tile===T.AIR) continue;
+      var sx=tx*TILE-cam.x, sy=ty*TILE-cam.y;
+      var td=TD[tile];
+      // Lighting
+      var light=getLight(tx,ty);
+      ctx.fillStyle=td.c;
+      // Slight texture variation
+      var hashv=((tx*73856093)^(ty*19349663))&0xff;
+      ctx.fillRect(sx,sy,TILE,TILE);
+      if(hashv<60){
+        ctx.fillStyle='rgba(0,0,0,0.08)';
+        ctx.fillRect(sx+1,sy+1,3,3);
+      } else if(hashv>200){
+        ctx.fillStyle='rgba(255,255,255,0.05)';
+        ctx.fillRect(sx+TILE-4,sy+TILE-4,3,3);
+      }
+      // Ore highlights
+      if(tile===T.COPPER||tile===T.IRON||tile===T.GOLD||tile===T.COAL||tile===T.DIAMOND){
+        ctx.fillStyle=tile===T.COPPER?'#d49560':tile===T.IRON?'#ddd':tile===T.GOLD?'#ffec80':tile===T.COAL?'#555':'#80f0ff';
+        ctx.fillRect(sx+5,sy+5,4,4); ctx.fillRect(sx+14,sy+12,4,4); ctx.fillRect(sx+8,sy+16,3,3);
+      }
+      // Torch glow
+      if(tile===T.TORCH){
+        ctx.fillStyle='#FFA500'; ctx.fillRect(sx+TILE/2-2,sy+TILE/2,4,TILE/2);
+        ctx.fillStyle='#FFD700'; ctx.beginPath(); ctx.arc(sx+TILE/2,sy+TILE/2-2,4+Math.sin(G.time*10)*1,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(255,200,0,0.15)';
+        ctx.beginPath(); ctx.arc(sx+TILE/2,sy+TILE/2,40,0,Math.PI*2); ctx.fill();
+      }
+      // Apply darkness overlay
+      if(light<0.95){
+        ctx.fillStyle='rgba(0,0,0,'+(1-light)*0.85+')';
+        ctx.fillRect(sx,sy,TILE,TILE);
+      }
+    }
+  }
+  // Mining progress
+  if(player.mining){
+    var sx=player.mining.tx*TILE-cam.x, sy=player.mining.ty*TILE-cam.y;
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.fillRect(sx,sy,TILE,TILE);
+    // Crack lines
+    var p=player.mining.prog;
+    ctx.strokeStyle='rgba(0,0,0,'+p+')';
+    ctx.lineWidth=1+Math.floor(p*3);
+    ctx.beginPath();
+    ctx.moveTo(sx+3,sy+3); ctx.lineTo(sx+TILE-3,sy+TILE-3);
+    if(p>0.3){ctx.moveTo(sx+TILE-3,sy+3); ctx.lineTo(sx+3,sy+TILE-3);}
+    if(p>0.6){ctx.moveTo(sx+TILE/2,sy); ctx.lineTo(sx+TILE/2,sy+TILE);}
+    ctx.stroke();
+  }
+  // Particles
+  for(var i=0;i<particles.length;i++){
+    var p=particles[i];
+    var a=p.l/p.ml;
+    ctx.globalAlpha=a;
+    ctx.fillStyle=p.c;
+    ctx.fillRect(p.x-cam.x-p.s/2,p.y-cam.y-p.s/2,p.s,p.s);
+  }
+  ctx.globalAlpha=1;
+  // Enemies
+  for(var i=0;i<enemies.length;i++) renderEnemy(enemies[i]);
+  // Player
+  renderPlayer();
+  // Crosshair
+  var mx=G.mouse.x,my=G.mouse.y;
+  ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(mx,my,8,0,Math.PI*2); ctx.stroke();
+  // Target tile highlight
+  var tx=Math.floor(G.mouseWorld.x/TILE),ty=Math.floor(G.mouseWorld.y/TILE);
+  var px=Math.floor(player.x/TILE),py=Math.floor(player.y/TILE);
+  var dist=Math.sqrt((tx-px)*(tx-px)+(ty-py)*(ty-py));
+  if(dist<=REACH){
+    ctx.strokeStyle='rgba(255,255,255,0.4)';
+    ctx.strokeRect(tx*TILE-cam.x,ty*TILE-cam.y,TILE,TILE);
+  }
+}
+
+function renderPlayer(){
+  if(!player.alive) return;
+  var sx=player.x-cam.x, sy=player.y-cam.y;
+  var ctx=G.ctx;
+  // Invuln flash
+  if(player.invuln>0 && Math.floor(player.invuln*20)%2===0) return;
+  // Body
+  ctx.fillStyle='#4a7ec4';
+  ctx.fillRect(sx-player.w/2,sy+12,player.w,player.h-12);
+  // Head
+  ctx.fillStyle='#f0c090';
+  ctx.fillRect(sx-7,sy,14,14);
+  // Eyes
+  ctx.fillStyle='#000';
+  ctx.fillRect(sx+player.facing*2-1,sy+5,2,2);
+  // Hair
+  ctx.fillStyle='#5a3a1a';
+  ctx.fillRect(sx-8,sy-1,16,5);
+  // Legs
+  ctx.fillStyle='#2a4a8a';
+  var walkPhase=Math.sin(G.time*12)*3;
+  if(player.onGround && Math.abs(player.vx)>0.5){
+    ctx.fillRect(sx-player.w/2,sy+player.h-6,7,6+walkPhase);
+    ctx.fillRect(sx+1,sy+player.h-6,7,6-walkPhase);
+  } else {
+    ctx.fillRect(sx-player.w/2,sy+player.h-6,7,6);
+    ctx.fillRect(sx+1,sy+player.h-6,7,6);
+  }
+  // Held item
+  var s=getSelected();
+  if(s){
+    var d=ID[s.i];
+    if(d){
+      ctx.font='16px sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(d.i,sx+player.facing*12,sy+22);
+    }
+  }
+  // Attack swing
+  if(player.attackCD>0.2){
+    var sw=(0.35-player.attackCD)/0.15;
+    ctx.strokeStyle='rgba(255,255,255,0.6)';
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.arc(sx,sy+20,30+sw*20,player.facing>0?-Math.PI/3:Math.PI*2/3,player.facing>0?Math.PI/3:Math.PI*4/3);
+    ctx.stroke();
+  }
+}
+
+function renderEnemy(e){
+  var sx=e.x-cam.x, sy=e.y-cam.y;
+  var ctx=G.ctx;
+  if(e.hitFlash>0) ctx.globalAlpha=0.5;
+  // Body
+  ctx.fillStyle='#3a5f3a';
+  ctx.fillRect(sx-e.w/2,sy+8,e.w,e.h-8);
+  // Head
+  ctx.fillStyle='#5a7f5a';
+  ctx.fillRect(sx-7,sy,14,10);
+  // Eyes (glowing red)
+  ctx.fillStyle='#ff0000';
+  ctx.fillRect(sx+e.facing*2-2,sy+3,3,2);
+  // Arms
+  ctx.fillStyle='#3a5f3a';
+  ctx.fillRect(sx-e.w/2-3,sy+10,4,14);
+  ctx.fillRect(sx+e.w/2-1,sy+10,4,14);
+  // Legs
+  ctx.fillRect(sx-e.w/2,sy+e.h-6,7,6);
+  ctx.fillRect(sx+1,sy+e.h-6,7,6);
+  ctx.globalAlpha=1;
+  // HP bar
+  if(e.hp<e.maxHp){
+    ctx.fillStyle='rgba(0,0,0,0.5)';
+    ctx.fillRect(sx-12,sy-6,24,4);
+    ctx.fillStyle='#ff3333';
+    ctx.fillRect(sx-12,sy-6,24*(e.hp/e.maxHp),4);
+  }
+}
+// ===== UI =====
+function renderUI(){
+  // Hearts
+  var hc=document.getElementById('hp');
+  hc.innerHTML='';
+  var hearts=Math.ceil(player.hp/10);
+  for(var i=0;i<10;i++){
+    var div=document.createElement('div');div.className='h';
+    var filled=i<hearts;
+    var half=(!filled && i===hearts && player.hp%10>0);
+    div.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.5-8-11.5C4 6 6 4 8.5 4S12 6 12 6s1-2 3.5-2S20 6 20 9.5C20 15.5 12 21 12 21z" fill="'+(filled?'#e03030':half?'#801010':'#333')+'" stroke="#000" stroke-width="1"/></svg>';
+    hc.appendChild(div);
+  }
+  // Time indicator
+  var t=(G.time%DAY_LENGTH)/DAY_LENGTH;
+  var ti=document.getElementById('ti');
+  if(t<0.2) ti.textContent='🌅 黎明';
+  else if(t<0.45) ti.textContent='☀️ 白天';
+  else if(t<0.55) ti.textContent='🌇 黄昏';
+  else ti.textContent='🌙 夜晚';
+  // FPS
+  document.getElementById('fps').textContent='FPS:'+Math.round(G.fps);
+  // Hotbar
+  var hb=document.getElementById('hotbar');
+  hb.innerHTML='';
+  for(var i=0;i<10;i++){
+    var sl=document.createElement('div');sl.className='sl'+(i===player.hotbarSel?' sel':'');
+    sl.innerHTML='<span class="ky">'+((i+1)%10)+'</span>';
+    var item=player.inv[i];
+    if(item){
+      var d=ID[item.i];if(d){
+        var ic=document.createElement('span');ic.className='ic';ic.textContent=d.i;sl.appendChild(ic);
+        if(item.c>1){var ct=document.createElement('span');ct.className='ct';ct.textContent=item.c;sl.appendChild(ct);}
+      }
+    }
+    sl.onclick=(function(idx){return function(){player.hotbarSel=idx;};})(i);
+    hb.appendChild(sl);
+  }
+}
+
+function renderInv(){
+  var grid=document.getElementById('invGrid');
+  grid.innerHTML='';
+  for(var i=0;i<30;i++){
+    var sl=document.createElement('div');sl.className='is';
+    var item=player.inv[i];
+    if(item){
+      var d=ID[item.i];if(d){
+        var ic=document.createElement('span');ic.className='ic';ic.textContent=d.i;sl.appendChild(ic);
+        if(item.c>1){var ct=document.createElement('span');ct.className='ct';ct.textContent=item.c;sl.appendChild(ct);}
+      }
+    }
+    sl.onclick=(function(idx){return function(){
+      // Click inventory slot: swap with hotbar selection if in hotbar range, or just select
+      if(idx<10) player.hotbarSel=idx;
+    };})(i);
+    grid.appendChild(sl);
+  }
+}
+
+function renderCraft(){
+  var list=document.getElementById('rcList');
+  list.innerHTML='';
+  for(var i=0;i<RECIPES.length;i++){
+    var r=RECIPES[i];
+    var can=true;
+    for(var j=0;j<r.in.length;j++) if(countItem(r.in[j].i)<r.in[j].c){can=false;break;}
+    var div=document.createElement('div');div.className='rc'+(can?'':' dis');
+    var d=ID[r.out.i];
+    var cost='';
+    for(var j=0;j<r.in.length;j++){
+      var id=ID[r.in[j].i];
+      cost+=id.i+'x'+r.in[j].c+' ';
+    }
+    div.innerHTML='<span class="ic">'+d.i+'</span><span class="nm">'+r.name+'</span><span class="cs">'+cost+'</span>';
+    if(can) div.onclick=(function(recipe){return function(){
+      for(var j=0;j<recipe.in.length;j++) removeItem(recipe.in[j].i,recipe.in[j].c);
+      addItem(recipe.out.i,recipe.out.c);
+      showMsg('制作: '+ID[recipe.out.i].n);
+      renderCraft();
+    };})(r);
+    list.appendChild(div);
+  }
+}
+
+var msgTimer=null;
+function showMsg(text){
+  var m=document.getElementById('msg');
+  m.textContent=text; m.style.opacity=1;
+  if(msgTimer) clearTimeout(msgTimer);
+  msgTimer=setTimeout(function(){m.style.opacity=0;},2000);
+}
+// ===== GAME OBJECT =====
+var G={
+  canvas:null,ctx:null,cw:0,ch:0,
+  keys:{},mouse:{x:0,y:0},mouseWorld:{x:0,y:0},
+  mouseDown:false,rightDown:false,
+  time:0,isNight:false,
+  running:false,started:false,
+  fps:60,lastFrame:0,shake:0,
+  invOpen:false,craftOpen:false,
+
+  start:function(){
+    document.getElementById('start').style.display='none';
+    this.started=true;this.running=true;
+    this.canvas=document.getElementById('game');
+    this.ctx=this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize',function(){G.resize();});
+    genWorld();
+    initPlayer();
+    this.time=DAY_LENGTH*0.1; // start in morning
+    this.lastFrame=performance.now();
+    this.loop();
+  },
+
+  resize:function(){
+    this.cw=window.innerWidth;this.ch=window.innerHeight;
+    this.canvas.width=this.cw;this.canvas.height=this.ch;
+  },
+
+  respawn:function(){
+    document.getElementById('death').style.display='none';
+    player.hp=100;player.alive=true;player.invuln=2;
+    var sx=Math.floor(WORLD_W/2);
+    var sy=getSurface(sx);
+    player.x=sx*TILE+TILE/2;
+    player.y=(sy-2)*TILE;
+    player.vx=0;player.vy=0;
+    enemies=[];
+  },
+
+  loop:function(){
+    if(!G.started) return;
+    requestAnimationFrame(function(){G.loop();});
+    var now=performance.now();
+    var dt=Math.min((now-G.lastFrame)/1000,0.05);
+    G.lastFrame=now;
+    G.fps=G.fps*0.9+(1/dt)*0.1;
+    if(!G.running) return;
+    G.update(dt);
+    G.render();
+  },
+
+  update:function(dt){
+    this.time+=dt;
+    var t=(this.time%DAY_LENGTH)/DAY_LENGTH;
+    this.isNight=(t>0.5 && t<0.98);
+    // Mouse world pos
+    this.mouseWorld.x=this.mouse.x+cam.x;
+    this.mouseWorld.y=this.mouse.y+cam.y;
+    // Update
+    updatePlayer(dt);
+    updateMining(dt);
+    updateEnemies(dt);
+    updateParticles(dt);
+    updateCamera(dt);
+    // Recompute light every few frames
+    if(Math.floor(this.time*4)%2===0) computeLight();
+    // UI
+    renderUI();
+    if(this.invOpen) renderInv();
+    if(this.craftOpen) renderCraft();
+    // Place block on right click
+    if(this.rightDown){
+      var tx=Math.floor(this.mouseWorld.x/TILE),ty=Math.floor(this.mouseWorld.y/TILE);
+      placeBlock(tx,ty);
+      this.rightDown=false; // single place
+    }
+  },
+
+  render:function(){
+    render();
+  }
+};
+
+// ===== INPUT =====
+window.addEventListener('keydown',function(e){
+  var k=e.key.toLowerCase();
+  G.keys[k]=true;
+  if(k==='e'){G.invOpen=!G.invOpen;document.getElementById('inv').style.display=G.invOpen?'block':'none';if(G.invOpen)renderInv();}
+  if(k==='c'){G.craftOpen=!G.craftOpen;document.getElementById('craft').style.display=G.craftOpen?'block':'none';if(G.craftOpen)renderCraft();}
+  if(k==='f'){
+    // Place torch
+    var tx=Math.floor(G.mouseWorld.x/TILE),ty=Math.floor(G.mouseWorld.y/TILE);
+    var oldSel=player.hotbarSel;
+    // Find torch in inventory
+    for(var i=0;i<30;i++) if(player.inv[i]&&player.inv[i].i===11){player.hotbarSel=i;break;}
+    placeBlock(tx,ty);
+    player.hotbarSel=oldSel;
+  }
+  if(k==='q'){
+    // Drop selected item
+    player.inv[player.hotbarSel]=null;
+  }
+  // Hotbar selection 1-0
+  if(k>='1'&&k<='9'){player.hotbarSel=parseInt(k)-1;}
+  if(k==='0'){player.hotbarSel=9;}
+  // Prevent scroll
+  if(k===' '||k==='arrowup'||k==='arrowdown') e.preventDefault();
+});
+
+window.addEventListener('keyup',function(e){
+  G.keys[e.key.toLowerCase()]=false;
+});
+
+window.addEventListener('mousemove',function(e){
+  G.mouse.x=e.clientX;G.mouse.y=e.clientY;
+});
+
+window.addEventListener('mousedown',function(e){
+  if(e.button===0){G.mouseDown=true;}
+  if(e.button===2){G.rightDown=true;}
+});
+
+window.addEventListener('mouseup',function(e){
+  if(e.button===0){G.mouseDown=false;player.mining=null;}
+});
+
+window.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+window.addEventListener('wheel',function(e){
+  if(e.deltaY>0) player.hotbarSel=(player.hotbarSel+1)%10;
+  else player.hotbarSel=(player.hotbarSel+9)%10;
+});
+
+// Separate attack handling - attack on left click when holding weapon, otherwise mine
+var attackInterval=null;
+window.addEventListener('mousedown',function(e){
+  if(e.button!==0||!G.started) return;
+  // Check if holding weapon
+  var s=getSelected();
+  var isWeapon=s&&ID[s.i]&&ID[s.i].t==='sw';
+  if(isWeapon){
+    attack();
+    attackInterval=setInterval(function(){
+      if(G.mouseDown) attack();
+      else{clearInterval(attackInterval);attackInterval=null;}
+    },350);
+  }
+});
+window.addEventListener('mouseup',function(e){
+  if(e.button===0&&attackInterval){clearInterval(attackInterval);attackInterval=null;}
+});
+
+// Mining loop - separate from attack
+setInterval(function(){
+  if(G.started&&G.mouseDown&&!attackInterval){
+    // Mining is handled in updateMining via dt
+  }
+},16);
+
+// Eat food with right-click on apple
+window.addEventListener('mousedown',function(e){
+  if(e.button!==2||!G.started) return;
+  var s=getSelected();
+  if(s&&ID[s.i]&&ID[s.i].t==='food'){
+    player.hp=Math.min(player.maxHp,player.hp+ID[s.i].heal);
+    s.c--;if(s.c<=0)player.inv[player.hotbarSel]=null;
+    showMsg('恢复 '+ID[s.i].heal+' 生命值');
+    G.rightDown=false; // prevent placing
+  }
+});
+
+</script>
+</body>
+</html>
